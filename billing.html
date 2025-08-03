@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Billing Grid</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #bcc6eb, #d6d8f5);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      width: 95%; height: 95vh;
+      background-color: #f8f8f8;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+    .header {
+      background-color: #d6e3fa;
+      padding: 15px 25px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .header div {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .header input {
+      margin-top: 5px;
+      padding: 5px;
+      font-size: 14px;
+      border: none;
+      border-radius: 5px;
+      width: 150px;
+      font-family: Arial, sans-serif;
+    }
+    .table-wrapper { flex-grow: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; background-color: #fff; }
+    th, td {
+      border: 1px solid #000;
+      text-align: center;
+      vertical-align: middle;
+      padding: 8px;
+      font-size: 16px;
+      min-width: 120px;
+    }
+    td[contenteditable="true"]:focus {
+      outline: none;
+      background-color: #e8f0fe;
+    }
+    tr.selected { background-color: #ffe6e6; }
+    .footer {
+      text-align: right;
+      padding: 10px 20px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      width: 400px;
+      max-width: 90%;
+      font-family: Arial, sans-serif;
+    }
+    .modal-content h3 {
+      margin: 0 0 15px;
+      color: #333;
+      text-align: center;
+    }
+    .modal-content select, .modal-content input {
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    .modal-content .return-amount {
+      display: none;
+      margin: 10px 0;
+      color: #333;
+      font-weight: bold;
+    }
+    .modal-content .buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .modal-content button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .modal-content .submit-btn {
+      background-color: #74aaff;
+      color: #fff;
+    }
+    .modal-content .submit-btn:hover {
+      background-color: #5a8ee6;
+    }
+    .modal-content .cancel-btn {
+      background-color: #ccc;
+      color: #333;
+    }
+    .modal-content .cancel-btn:hover {
+      background-color: #b3b3b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <span id="date"></span>
+        <input id="userName" type="text" placeholder="Enter Name" />
+      </div>
+      <div>
+        <span id="time"></span>
+        <input id="phoneNumber" type="text" placeholder="Enter Phone" />
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="billingTable">
+        <thead>
+          <tr>
+            <th>SNo</th>
+            <th>Pid</th>
+            <th>Name</th>
+            <th>Qty</th>
+            <th>Net Amount</th>
+            <th>GST (%)</th>
+            <th>Discount (%)</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="footer">TOTAL : ₹<span id="totalAmount">0.00</span></div>
+  </div>
+  <div id="transactionModal" class="modal">
+    <div class="modal-content">
+      <h3>Transaction Details</h3>
+      <form id="transactionForm">
+        <select id="transactionMode" onchange="updateReturnAmount()">
+          <option value="Cash">Cash</option>
+          <option value="Card">Card</option>
+          <option value="GPay">GPay</option>
+        </select>
+        <input type="number" id="paidAmount" placeholder="Amount Paid" step="0.01" required oninput="updateReturnAmount()" />
+        <div id="returnAmount" class="return-amount">Return Amount: ₹0.00</div>
+        <div class="buttons">
+          <button type="submit" class="submit-btn">Submit</button>
+          <button type="button" class="cancel-btn" onclick="closeTransactionModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+    const tableBody = document.getElementById('tableBody');
+    let currentTotalAmount = 0;
+
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById("date").innerText = now.toLocaleDateString();
+      document.getElementById("time").innerText = now.toLocaleTimeString();
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    function createRow(sno) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td class="sno" ondblclick="markRowForDeletion(this)">${sno}</td>` +
+        '<td contenteditable="true"></td>' +
+        '<td contenteditable="true"></td>' +
+        '<td contenteditable="true"></td>' +
+        '<td contenteditable="true"></td>' +
+        '<td contenteditable="true">0</td>' +
+        '<td contenteditable="true">0</td>' +
+        '<td class="amount">0.00</td>';
+
+      Array.from(row.cells).forEach((cell, index) => {
+        if (index > 0 && index < 7) {
+          cell.addEventListener('input', () => {
+            calculateRow(row);
+            autoAddRow(row);
+          });
+          cell.addEventListener('keydown', (e) => handleKey(e, cell));
+        }
+      });
+
+      return row;
+    }
+
+    function initializeTable() {
+      for (let i = 1; i <= 6; i++) {
+        tableBody.appendChild(createRow(i));
+      }
+    }
+
+    function updateSno() {
+      [...tableBody.rows].forEach((row, index) => {
+        row.querySelector('.sno').innerText = index + 1;
+      });
+    }
+
+    function handleKey(e, cell) {
+      const row = cell.parentNode;
+      const colIndex = cell.cellIndex;
+      const rows = Array.from(tableBody.rows);
+      const rowIndex = rows.indexOf(row);
+      if (e.shiftKey && e.key === "Delete") {
+        e.preventDefault();
+        tableBody.innerHTML = '';
+        tableBody.appendChild(createRow(1));
+        document.getElementById("userName").value = '';
+        document.getElementById("phoneNumber").value = '';
+        updateTotal();
+      }
+
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        let next = cell.nextElementSibling;
+        if (next && next.contentEditable === 'true') next.focus();
+      }
+
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        const nextRow = rows[rowIndex + 1];
+        if (nextRow) {
+          const editable = nextRow.querySelectorAll('[contenteditable="true"]');
+          if (editable[colIndex - 1]) editable[colIndex - 1].focus();
+        }
+      }
+
+      if (e.shiftKey && e.key === "!") {
+        e.preventDefault();
+        storeAndResetBill();
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextRow = rows[rowIndex + 1];
+        if (nextRow) {
+          const editable = nextRow.querySelectorAll('[contenteditable="true"]');
+          if (editable[colIndex - 1]) editable[colIndex - 1].focus();
+        } else {
+          const newRow = createRow(rows.length + 1);
+          tableBody.appendChild(newRow);
+          updateSno();
+          const newEditable = newRow.querySelectorAll('[contenteditable="true"]');
+          if (newEditable[colIndex - 1]) newEditable[colIndex - 1].focus();
+        }
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevRow = rows[rowIndex - 1];
+        if (prevRow) {
+          const editable = prevRow.querySelectorAll('[contenteditable="true"]');
+          if (editable[colIndex - 1]) editable[colIndex - 1].focus();
+        }
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prev = cell.previousElementSibling;
+        if (prev && prev.contentEditable === 'true') prev.focus();
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const next = cell.nextElementSibling;
+        if (next && next.contentEditable === 'true') next.focus();
+      }
+    }
+
+    function calculateRow(row) {
+      const cells = row.cells;
+      const qty = parseFloat(cells[3].innerText) || 0;
+      const net = parseFloat(cells[4].innerText) || 0;
+      const gst = parseFloat(cells[5].innerText) || 0;
+      const discount = parseFloat(cells[6].innerText) || 0;
+      let amount = qty * net;
+      amount += (amount * gst) / 100;
+      amount -= (amount * discount) / 100;
+      cells[7].innerText = amount.toFixed(2);
+      updateTotal();
+    }
+
+    function updateTotal() {
+      let total = 0;
+      document.querySelectorAll('.amount').forEach(cell => {
+        total += parseFloat(cell.innerText) || 0;
+      });
+      document.getElementById('totalAmount').innerText = total.toFixed(2);
+    }
+
+    function autoAddRow(row) {
+      const inputs = row.querySelectorAll('[contenteditable="true"]');
+      const allFilled = [...inputs].every(cell => cell.innerText.trim() !== '');
+      if (allFilled && row === tableBody.lastElementChild) {
+        tableBody.appendChild(createRow(tableBody.rows.length + 1));
+        updateSno();
+      }
+    }
+
+    function markRowForDeletion(cell) {
+      const row = cell.parentNode;
+      if (row.parentNode.firstElementChild === row) {
+        const cells = row.cells;
+        cells[1].innerText = ''; // Pid
+        cells[2].innerText = ''; // Name
+        cells[3].innerText = ''; // Qty
+        cells[4].innerText = ''; // Net Amount
+        cells[5].innerText = '0'; // GST
+        cells[6].innerText = '0'; // Discount
+        cells[7].innerText = '0.00'; // Amount
+        updateTotal();
+        return;
+      }
+      row.remove();
+      updateSno();
+      updateTotal();
+    }
+
+    function showTransactionModal() {
+      currentTotalAmount = parseFloat(document.getElementById("totalAmount").innerText) || 0;
+      const modal = document.getElementById("transactionModal");
+      modal.style.display = "flex";
+      document.getElementById("transactionMode").value = "Cash";
+      document.getElementById("paidAmount").value = "";
+      updateReturnAmount();
+      document.getElementById('transactionForm').onsubmit = handleTransactionSubmit;
+    }
+
+    function updateReturnAmount() {
+      const mode = document.getElementById("transactionMode").value;
+      const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+      const returnAmountDiv = document.getElementById("returnAmount");
+      if (mode === "Cash") {
+        const returnAmount = paidAmount - currentTotalAmount;
+        returnAmountDiv.style.display = "block";
+        returnAmountDiv.innerText = `Return Amount: ₹${returnAmount.toFixed(2)}`;
+      } else {
+        returnAmountDiv.style.display = "none";
+      }
+    }
+
+    function handleTransactionSubmit(e) {
+      e.preventDefault();
+      const transactionMode = document.getElementById("transactionMode").value;
+      const paidAmount = parseFloat(document.getElementById("paidAmount").value) || 0;
+
+      if (transactionMode === "Cash" && paidAmount < currentTotalAmount) {
+        alert("Paid amount must be at least the total amount for Cash.");
+        return;
+      }
+
+      const userName = document.getElementById("userName").value.trim();
+      const phoneNumber = document.getElementById("phoneNumber").value.trim();
+      const date = document.getElementById("date").innerText;
+      const totalAmount = document.getElementById("totalAmount").innerText;
+      const returnAmount = transactionMode === "Cash" ? (paidAmount - currentTotalAmount).toFixed(2) : "0.00";
+      const billData = [...tableBody.rows].map(row => {
+        return [...row.cells].map(cell => cell.innerText);
+      });
+
+      console.log("Stored Bill:", { userName, phoneNumber, date, totalAmount, transactionMode, paidAmount: paidAmount.toFixed(2), returnAmount, billData });
+
+      tableBody.innerHTML = '';
+      tableBody.appendChild(createRow(1));
+      document.getElementById("userName").value = '';
+      document.getElementById("phoneNumber").value = '';
+      updateTotal();
+      closeTransactionModal();
+    }
+
+    function closeTransactionModal() {
+      document.getElementById("transactionModal").style.display = "none";
+    }
+
+    function storeAndResetBill() {
+      showTransactionModal();
+    }
+
+    initializeTable();
+  </script>
+</body>
+</html>

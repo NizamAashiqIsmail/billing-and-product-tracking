@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="home.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="script.js"></script> <!-- External JS linked here -->
+</head>
+<body>
+  <div class="background">
+    <div class="blob top-right"></div>
+    <div class="blob bottom-right"></div>
+
+    <div class="dashboard-container">
+      <div class="sidebar">
+        <div class="home-btn">HOME</div>
+        <a href="billing.html" class="nav-btn" style="text-decoration-line: none;">Billing</a>
+
+        <div class="nav-group">
+          <div class="nav-btn" onclick="toggleDropdown('productsDropdown')">Products</div>
+          <div class="dropdown-panel" id="productsDropdown">
+            <a href="#" onclick="showProductDetails('Brass')">Brass</a>
+            <a href="#" onclick="showProductDetails('Steel')">Steel</a>
+            <a href="#" onclick="showProductDetails('Aluminium')">Aluminium</a>
+            <a href="#" onclick="showProductDetails('Plastic')">Plastic</a>
+            <a href="#" onclick="showProductDetails('Electronics')">Electronics</a>
+            <a href="#" onclick="showProductDetails('Furniture')">Furniture</a>
+            <a href="#" onclick="showProductDetails('Wood')">Wood</a>
+          </div>
+        </div>
+
+        <div class="nav-btn" onclick="showWarehouse()">Warehouse</div>
+        <div class="nav-btn" onclick="showSalesChart()">Sales</div>
+        <div class="nav-btn" onclick="showDownloads()">Downloads</div>
+        <div class="nav-btn" onclick="showTodo()">To do</div>
+      </div>
+
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+</body>
+</html>
